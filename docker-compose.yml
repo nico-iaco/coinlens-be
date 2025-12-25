@@ -1,0 +1,30 @@
+services:
+  coinlens-be:
+    image: ghcr.io/nico-iaco/coinlens-be:latest
+    container_name: coinlens-be
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/coinlens?sslmode=disable
+      - PORT=8080
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - db
+    volumes:
+      - ./uploads:/root/uploads
+
+  db:
+    image: postgres:15-alpine
+    container_name: coinlens-db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=coinlens
+    expose:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d/migrations # Optional: Auto-run migrations if script format allows, else handle in app
+
+volumes:
+  postgres_data:
