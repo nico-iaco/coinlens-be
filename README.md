@@ -1,6 +1,6 @@
 # CoinLens Backend
 
-CoinLens is a powerful backend application designed to catalog and identify coins. Leveraging Google's Gemini 2.0 Flash AI, it analyzes front and back images of coins to provide detailed identification data (name, country, year, description) and stores this information in a PostgreSQL database while managing image assets on the local filesystem.
+CoinLens is a powerful backend application designed to catalog and identify coins. Leveraging Google's Gemini 3 Flash AI, it analyzes front and back images of coins to provide detailed identification data (name, country, year, description) and stores this information in a PostgreSQL database while managing image assets on the local filesystem.
 
 ## 🚀 Features
 
@@ -14,7 +14,7 @@ CoinLens is a powerful backend application designed to catalog and identify coin
 
 - **Language**: Go (Golang) 1.25+
 - **Database**: PostgreSQL 15
-- **AI Engine**: Google Gemini 2.0 Flash (`google.golang.org/genai`)
+- **AI Engine**: Google Gemini 3 Flash (`google.golang.org/genai`)
 - **Router/HTTP**: Standard library `net/http`
 - **Database Driver**: `pgx` (PostgreSQL Driver and Toolkit)
 - **Configuration**: `godotenv` for environment variable management
@@ -45,7 +45,7 @@ coinlens-be/
 
 ### Prerequisites
 
-- **Go**: Version 1.24 or higher
+- **Go**: Version 1.25 or higher
 - **Docker**: For containerized execution
 - **Gemini API Key**: Obtainable from Google AI Studio
 
