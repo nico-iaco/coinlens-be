@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ func (s *StorageService) SaveFile(file multipart.File, filename string) error {
 	if _, err := io.Copy(dst, file); err != nil {
 		return fmt.Errorf("failed to save file content: %w", err)
 	}
+	log.Printf("File saved to storage: %s", path)
 
 	return nil
 }

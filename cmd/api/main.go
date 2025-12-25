@@ -8,6 +8,7 @@ import (
 	"coinlens-be/internal/config"
 	"coinlens-be/internal/database"
 	"coinlens-be/internal/handler"
+	"coinlens-be/internal/middleware"
 	"coinlens-be/internal/service"
 )
 
@@ -31,15 +32,21 @@ func main() {
 
 	coinHandler := handler.NewCoinHandler(db, geminiClient, storageService)
 
-	http.HandleFunc("/api/coins/identify", coinHandler.IdentifyCoin)
-	http.HandleFunc("/api/coins", coinHandler.GetCoins)
+	// Create a multiplexer
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/coins/identify", coinHandler.IdentifyCoin)
+	mux.HandleFunc("/api/coins", coinHandler.GetCoins)
 
 	// Serve static files from "uploads" directory
 	fs := http.FileServer(http.Dir("uploads"))
-	http.Handle("/uploads/", http.StripPrefix("/uploads/", fs))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", fs))
 
 	log.Printf("Server running on port %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
+
+	// Wrap the mux with the logging middleware
+	handlerWithLogging := middleware.LoggingMiddleware(mux)
+
+	if err := http.ListenAndServe(":"+cfg.Port, handlerWithLogging); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

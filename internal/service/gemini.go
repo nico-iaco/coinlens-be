@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"coinlens-be/internal/models"
@@ -44,6 +45,8 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 		{Parts: parts},
 	}
 
+	// 2. Call Gemini
+	log.Printf("Calling Gemini API...")
 	resp, err := g.client.Models.GenerateContent(ctx, "gemini-3-flash-preview", contents, nil)
 
 	if err != nil {
@@ -53,6 +56,7 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 	if resp == nil || len(resp.Candidates) == 0 {
 		return nil, fmt.Errorf("no response from gemini")
 	}
+	log.Printf("Gemini response received. Candidates: %d", len(resp.Candidates))
 
 	// Extract text from the first candidate
 	var fullText string
@@ -72,6 +76,7 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 	if err := json.Unmarshal([]byte(fullText), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse gemini response: %w, text: %s", err, fullText)
 	}
+	log.Printf("Successfully parsed Gemini response")
 
 	return &result, nil
 }

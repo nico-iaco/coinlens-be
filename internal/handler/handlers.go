@@ -34,6 +34,8 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	// Log the start of the request
+	log.Printf("IdentifyCoin: Request received")
 
 	// Parse multipart form
 	// limit max memory to 10MB
@@ -62,6 +64,8 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read front image", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Read front image: %d bytes", len(frontBytes))
+
 	// seeking back to start for storage saving
 	frontFile.Seek(0, 0)
 
@@ -71,6 +75,7 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	backFile.Seek(0, 0)
+	log.Printf("Read back image: %d bytes", len(backBytes))
 
 	// 2. Call Gemini
 	analysis, err := h.Gemini.IdentifyCoin(r.Context(), frontBytes, backBytes)
@@ -79,6 +84,7 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Gemini analysis successful for coin: %s", analysis.Name)
 
 	// Generate ID
 	coinID := uuid.New()
@@ -112,6 +118,8 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Coin identified and saved successfully: %s", coinID.String())
+
 	// 5. Return response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -128,6 +136,7 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	log.Printf("GetCoins: Request received")
 
 	rows, err := h.DB.Pool.Query(r.Context(), "SELECT id, name, description, year, country, created_at FROM coins ORDER BY created_at DESC")
 	if err != nil {
@@ -167,6 +176,7 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 			"created_at":      c.CreatedAt,
 		})
 	}
+	log.Printf("GetCoins: Found %d coins", len(coins))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(coins)
