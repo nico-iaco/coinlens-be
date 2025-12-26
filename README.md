@@ -139,6 +139,34 @@ Retrieves the catalog of identified coins with image URLs.
 ]
 ```
 
+### Update Coin Name
+
+Updates the name of a specific coin.
+
+- **Endpoint**: `PUT /api/coins/{id}`
+- **Content-Type**: `application/json`
+
+#### Parameters
+
+| Key | Type | Description |
+| :--- | :--- | :--- |
+| `name` | String | New name for the coin |
+
+#### Response Example
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "New Coin Name",
+  "description": "...",
+  "year": "1944",
+  "country": "United States",
+  "image_front_url": "/uploads/550e8400-e29b-41d4-a716-446655440000-front.jpg",
+  "image_back_url": "/uploads/550e8400-e29b-41d4-a716-446655440000-back.jpg",
+  "created_at": "2025-12-25T19:30:00Z"
+}
+```
+
 ## 📝 License
 
 This project is open-source and available for personal and educational use.

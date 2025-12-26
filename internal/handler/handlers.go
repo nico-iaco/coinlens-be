@@ -182,6 +182,69 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(coins)
 }
 
+func (h *CoinHandler) UpdateCoin(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		http.Error(w, "Missing coin ID", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if payload.Name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	var c struct {
+		ID          string
+		Name        string
+		Description string
+		Year        string
+		Country     string
+		CreatedAt   time.Time
+	}
+
+	err := h.DB.Pool.QueryRow(r.Context(),
+		"UPDATE coins SET name = $1 WHERE id = $2 RETURNING id, name, description, year, country, created_at",
+		payload.Name, idStr).Scan(&c.ID, &c.Name, &c.Description, &c.Year, &c.Country, &c.CreatedAt)
+
+	if err != nil {
+		log.Printf("DB update error: %v", err)
+		// Check for no rows (coin not found) - pgx returns error for no rows in QueryRow
+		if err.Error() == "no rows in result set" {
+			http.Error(w, "Coin not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to update coin", http.StatusInternalServerError)
+		return
+	}
+
+	// Construct URLs deterministically
+	frontURL := "/uploads/" + c.ID + "-front.jpg"
+	backURL := "/uploads/" + c.ID + "-back.jpg"
+
+	response := map[string]interface{}{
+		"id":              c.ID,
+		"name":            c.Name,
+		"description":     c.Description,
+		"year":            c.Year,
+		"country":         c.Country,
+		"image_front_url": frontURL,
+		"image_back_url":  backURL,
+		"created_at":      c.CreatedAt,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 func readFileToBytes(file multipart.File) ([]byte, error) {
 	var buf []byte
 	// Read all
