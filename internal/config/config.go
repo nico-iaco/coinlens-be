@@ -11,6 +11,7 @@ type Config struct {
 	DatabaseURL  string
 	Port         string
 	GeminiAPIKey string
+	GeminiModel  string
 }
 
 func LoadConfig() *Config {
@@ -22,6 +23,7 @@ func LoadConfig() *Config {
 		DatabaseURL:  getEnv("DATABASE_URL", ""),
 		Port:         getEnv("PORT", "8080"),
 		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-3-flash-preview"),
 	}
 }
 

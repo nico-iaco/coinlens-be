@@ -63,6 +63,7 @@ coinlens-be/
     DATABASE_URL=postgres://user:password@localhost:5432/coinlens?sslmode=disable
     PORT=8080
     GEMINI_API_KEY=your_actual_api_key_here
+    GEMINI_MODEL=gemini-3-flash-preview # Optional, defaults to gemini-3-flash-preview
     ```
 
 ### 📦 Running with Docker (Recommended)

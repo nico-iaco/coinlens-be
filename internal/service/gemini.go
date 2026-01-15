@@ -13,10 +13,11 @@ import (
 )
 
 type GeminiClient struct {
-	client *genai.Client
+	client    *genai.Client
+	modelName string
 }
 
-func NewGeminiClient(apiKey string) (*GeminiClient, error) {
+func NewGeminiClient(apiKey, modelName string) (*GeminiClient, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  apiKey,
@@ -25,7 +26,7 @@ func NewGeminiClient(apiKey string) (*GeminiClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gemini client: %w", err)
 	}
-	return &GeminiClient{client: client}, nil
+	return &GeminiClient{client: client, modelName: modelName}, nil
 }
 
 func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage []byte) (*models.CoinAnalysis, error) {
@@ -46,8 +47,8 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 	}
 
 	// 2. Call Gemini
-	log.Printf("Calling Gemini API...")
-	resp, err := g.client.Models.GenerateContent(ctx, "gemini-3-flash-preview", contents, nil)
+	log.Printf("Calling Gemini API with model: %s...", g.modelName)
+	resp, err := g.client.Models.GenerateContent(ctx, g.modelName, contents, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("gemini generation failed: %w", err)

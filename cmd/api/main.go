@@ -23,7 +23,7 @@ func main() {
 	}
 	defer db.Close()
 
-	geminiClient, err := service.NewGeminiClient(cfg.GeminiAPIKey)
+	geminiClient, err := service.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
 	if err != nil {
 		log.Fatalf("Could not create Gemini client: %v", err)
 	}
