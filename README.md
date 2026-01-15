@@ -175,6 +175,21 @@ Deletes a coin record from the database and its associated image files from stor
 - **Endpoint**: `DELETE /api/coins/{id}`
 - **Response**: `204 No Content`
 
+### Manual Add Coin
+
+Manually adds a coin without AI identification.
+
+- **Endpoint**: `POST /api/coins`
+- **Content-Type**: `multipart/form-data`
+- **Parameters**: `name`, `description`, `year`, `country`, `front_image`, `back_image`
+
+### Re-identify Coin
+
+Triggers AI identification for an existing coin using stored images.
+
+- **Endpoint**: `POST /api/coins/{id}/identify`
+- **Response**: Updated coin analysis object
+
 ## 📝 License
 
 This project is open-source and available for personal and educational use.

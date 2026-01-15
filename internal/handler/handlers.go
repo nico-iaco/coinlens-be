@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"coinlens-be/internal/database"
+	"coinlens-be/internal/models"
 	"coinlens-be/internal/service"
 
 	"github.com/google/uuid"
@@ -287,4 +288,113 @@ func (h *CoinHandler) DeleteCoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *CoinHandler) CreateCoin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// limit max memory to 10MB
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "Unable to parse form", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	description := r.FormValue("description")
+	year := r.FormValue("year")
+	country := r.FormValue("country")
+
+	if name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Handle Images
+	frontFile, _, err := r.FormFile("front_image")
+	if err != nil {
+		http.Error(w, "Missing front_image", http.StatusBadRequest)
+		return
+	}
+	defer frontFile.Close()
+
+	backFile, _, err := r.FormFile("back_image")
+	if err != nil {
+		http.Error(w, "Missing back_image", http.StatusBadRequest)
+		return
+	}
+	defer backFile.Close()
+
+	coinID := uuid.New()
+
+	// Save images
+	if err := h.Storage.SaveFile(frontFile, coinID.String()+"-front.jpg"); err != nil {
+		log.Printf("Storage error front: %v", err)
+		http.Error(w, "Failed to save images", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.Storage.SaveFile(backFile, coinID.String()+"-back.jpg"); err != nil {
+		log.Printf("Storage error back: %v", err)
+		http.Error(w, "Failed to save images", http.StatusInternalServerError)
+		return
+	}
+
+	coin := &models.Coin{
+		ID:          coinID,
+		Name:        name,
+		Description: description,
+		Year:        year,
+		Country:     country,
+	}
+
+	if err := h.DB.CreateCoin(r.Context(), coin); err != nil {
+		log.Printf("DB error: %v", err)
+		http.Error(w, "Failed to save coin to database", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(coin)
+}
+
+func (h *CoinHandler) ReidentifyCoin(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		http.Error(w, "Missing coin ID", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Read files from storage
+	frontBytes, err := h.Storage.ReadFile(idStr + "-front.jpg")
+	if err != nil {
+		http.Error(w, "Failed to read front image", http.StatusInternalServerError)
+		return
+	}
+
+	backBytes, err := h.Storage.ReadFile(idStr + "-back.jpg")
+	if err != nil {
+		http.Error(w, "Failed to read back image", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Call Gemini
+	analysis, err := h.Gemini.IdentifyCoin(r.Context(), frontBytes, backBytes)
+	if err != nil {
+		log.Printf("Gemini error: %v", err)
+		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Update DB
+	if err := h.DB.UpdateCoinMetadata(r.Context(), idStr, analysis); err != nil {
+		log.Printf("DB update error: %v", err)
+		http.Error(w, "Failed to update coin metadata", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(analysis)
 }

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"coinlens-be/internal/models"
 	"context"
 	"fmt"
 	"log"
@@ -43,6 +44,29 @@ func (db *DB) DeleteCoin(ctx context.Context, id string) error {
 	result, err := db.Pool.Exec(ctx, "DELETE FROM coins WHERE id = $1", id)
 	if err != nil {
 		return fmt.Errorf("failed to delete coin: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("coin not found")
+	}
+	return nil
+}
+
+func (db *DB) CreateCoin(ctx context.Context, coin *models.Coin) error {
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO coins (id, name, description, year, country)
+		VALUES ($1, $2, $3, $4, $5)
+	`, coin.ID, coin.Name, coin.Description, coin.Year, coin.Country)
+	return err
+}
+
+func (db *DB) UpdateCoinMetadata(ctx context.Context, id string, analysis *models.CoinAnalysis) error {
+	result, err := db.Pool.Exec(ctx, `
+		UPDATE coins 
+		SET name = $1, description = $2, year = $3, country = $4
+		WHERE id = $5
+	`, analysis.Name, analysis.Description, analysis.Year, analysis.Country, id)
+	if err != nil {
+		return fmt.Errorf("failed to update coin metadata: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("coin not found")

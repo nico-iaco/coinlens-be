@@ -49,3 +49,8 @@ func (s *StorageService) DeleteFile(filename string) error {
 	log.Printf("File deleted from storage: %s", path)
 	return nil
 }
+
+func (s *StorageService) ReadFile(filename string) ([]byte, error) {
+	path := filepath.Join(s.UploadDir, filename)
+	return os.ReadFile(path)
+}

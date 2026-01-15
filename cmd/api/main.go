@@ -36,8 +36,10 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/coins/identify", coinHandler.IdentifyCoin)
 	mux.HandleFunc("GET /api/coins", coinHandler.GetCoins)
+	mux.HandleFunc("POST /api/coins", coinHandler.CreateCoin)
 	mux.HandleFunc("PUT /api/coins/{id}", coinHandler.UpdateCoin)
 	mux.HandleFunc("DELETE /api/coins/{id}", coinHandler.DeleteCoin)
+	mux.HandleFunc("POST /api/coins/{id}/identify", coinHandler.ReidentifyCoin)
 
 	// Serve static files from "uploads" directory
 	fs := http.FileServer(http.Dir("uploads"))
