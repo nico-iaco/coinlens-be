@@ -38,3 +38,14 @@ func Connect(connString string) (*DB, error) {
 func (db *DB) Close() {
 	db.Pool.Close()
 }
+
+func (db *DB) DeleteCoin(ctx context.Context, id string) error {
+	result, err := db.Pool.Exec(ctx, "DELETE FROM coins WHERE id = $1", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete coin: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("coin not found")
+	}
+	return nil
+}

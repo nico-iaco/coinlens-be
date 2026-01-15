@@ -37,3 +37,15 @@ func (s *StorageService) SaveFile(file multipart.File, filename string) error {
 
 	return nil
 }
+
+func (s *StorageService) DeleteFile(filename string) error {
+	path := filepath.Join(s.UploadDir, filename)
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil // File already gone
+		}
+		return fmt.Errorf("failed to delete file: %w", err)
+	}
+	log.Printf("File deleted from storage: %s", path)
+	return nil
+}

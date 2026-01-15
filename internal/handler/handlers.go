@@ -254,3 +254,37 @@ func readFileToBytes(file multipart.File) ([]byte, error) {
 	}
 	return buf, nil
 }
+
+func (h *CoinHandler) DeleteCoin(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		http.Error(w, "Missing coin ID", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Delete from DB
+	if err := h.DB.DeleteCoin(r.Context(), idStr); err != nil {
+		log.Printf("DB delete error: %v", err)
+		if err.Error() == "coin not found" || err.Error() == "failed to delete coin: coin not found" {
+			http.Error(w, "Coin not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to delete coin", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Delete images (best effort)
+	// Construct filenames based on ID
+	frontFilename := idStr + "-front.jpg"
+	backFilename := idStr + "-back.jpg"
+
+	if err := h.Storage.DeleteFile(frontFilename); err != nil {
+		log.Printf("Failed to delete front image: %v", err)
+		// We don't fail the request if image deletion fails, ensuring DB consistency is more important
+	}
+	if err := h.Storage.DeleteFile(backFilename); err != nil {
+		log.Printf("Failed to delete back image: %v", err)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

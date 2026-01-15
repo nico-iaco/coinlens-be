@@ -167,6 +167,13 @@ Updates the name of a specific coin.
 }
 ```
 
+### Delete Coin
+
+Deletes a coin record from the database and its associated image files from storage.
+
+- **Endpoint**: `DELETE /api/coins/{id}`
+- **Response**: `204 No Content`
+
 ## 📝 License
 
 This project is open-source and available for personal and educational use.
