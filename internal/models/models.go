@@ -12,6 +12,7 @@ type Coin struct {
 	Description string    `json:"description"`
 	Year        string    `json:"year"`
 	Country     string    `json:"country"`
+	UniversalID string    `json:"universal_id"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -20,4 +21,5 @@ type CoinAnalysis struct {
 	Description string `json:"description"`
 	Year        string `json:"year"`
 	Country     string `json:"country"`
+	UniversalID string `json:"universal_id"`
 }

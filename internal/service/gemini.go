@@ -34,7 +34,7 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 		return nil, fmt.Errorf("images cannot be empty")
 	}
 
-	prompt := "Identify this coin from the front and back images. Return ONLY a valid JSON object with the following fields: name, description, year, country. Do not include markdown code blocks."
+	prompt := "Identify this coin from the front and back images. Return ONLY a valid JSON object with the following fields: name, description, year, country, universal_id. The 'universal_id' should be a universally recognized identifier like Numista ID or Krause (KM) number if available, otherwise return an empty string. Do not include markdown code blocks."
 
 	parts := []*genai.Part{
 		genai.NewPartFromText(prompt),
@@ -78,6 +78,52 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 		return nil, fmt.Errorf("failed to parse gemini response: %w, text: %s", err, fullText)
 	}
 	log.Printf("Successfully parsed Gemini response")
+
+	return &result, nil
+}
+
+func (g *GeminiClient) IdentifyFromSingleImage(ctx context.Context, image []byte) (*models.CoinAnalysis, error) {
+	if len(image) == 0 {
+		return nil, fmt.Errorf("image cannot be empty")
+	}
+
+	prompt := "Identify this coin from the image. Return ONLY a valid JSON object with the following fields: name, description, year, country, universal_id. The 'universal_id' should be a universally recognized identifier like Numista ID or Krause (KM) number if available, otherwise return an empty string. Do not include markdown code blocks."
+
+	parts := []*genai.Part{
+		genai.NewPartFromText(prompt),
+		genai.NewPartFromBytes(image, "image/jpeg"),
+	}
+
+	contents := []*genai.Content{
+		{Parts: parts},
+	}
+
+	log.Printf("Calling Gemini API for single image identification...")
+	resp, err := g.client.Models.GenerateContent(ctx, g.modelName, contents, nil)
+	if err != nil {
+		return nil, fmt.Errorf("gemini generation failed: %w", err)
+	}
+
+	if resp == nil || len(resp.Candidates) == 0 {
+		return nil, fmt.Errorf("no response from gemini")
+	}
+
+	var fullText string
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if part.Text != "" {
+			fullText += part.Text
+		}
+	}
+
+	fullText = strings.TrimPrefix(fullText, "```json")
+	fullText = strings.TrimPrefix(fullText, "```")
+	fullText = strings.TrimSuffix(fullText, "```")
+	fullText = strings.TrimSpace(fullText)
+
+	var result models.CoinAnalysis
+	if err := json.Unmarshal([]byte(fullText), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse gemini response: %w, text: %s", err, fullText)
+	}
 
 	return &result, nil
 }

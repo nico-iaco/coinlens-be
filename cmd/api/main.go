@@ -35,6 +35,7 @@ func main() {
 	// Create a multiplexer
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/coins/identify", coinHandler.IdentifyCoin)
+	mux.HandleFunc("POST /api/coins/search", coinHandler.SearchSimilarCoins)
 	mux.HandleFunc("GET /api/coins", coinHandler.GetCoins)
 	mux.HandleFunc("POST /api/coins", coinHandler.CreateCoin)
 	mux.HandleFunc("PUT /api/coins/{id}", coinHandler.UpdateCoin)

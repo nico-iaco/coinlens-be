@@ -124,11 +124,12 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 	// 5. Return response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id":          coinID.String(),
-		"name":        analysis.Name,
-		"description": analysis.Description,
-		"year":        analysis.Year,
-		"country":     analysis.Country,
+		"id":           coinID.String(),
+		"name":         analysis.Name,
+		"description":  analysis.Description,
+		"year":         analysis.Year,
+		"country":      analysis.Country,
+		"universal_id": analysis.UniversalID,
 	})
 }
 
@@ -139,7 +140,7 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("GetCoins: Request received")
 
-	rows, err := h.DB.Pool.Query(r.Context(), "SELECT id, name, description, year, country, created_at FROM coins ORDER BY created_at DESC")
+	rows, err := h.DB.Pool.Query(r.Context(), "SELECT id, name, description, year, country, universal_id, created_at FROM coins ORDER BY created_at DESC")
 	if err != nil {
 		log.Printf("DB query error: %v", err)
 		http.Error(w, "Failed to fetch coins", http.StatusInternalServerError)
@@ -155,9 +156,10 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 			Description string
 			Year        string
 			Country     string
+			UniversalID string
 			CreatedAt   time.Time
 		}
-		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Year, &c.Country, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Year, &c.Country, &c.UniversalID, &c.CreatedAt); err != nil {
 			log.Printf("Row scan error: %v", err)
 			continue
 		}
@@ -172,6 +174,7 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 			"description":     c.Description,
 			"year":            c.Year,
 			"country":         c.Country,
+			"universal_id":    c.UniversalID,
 			"image_front_url": frontURL,
 			"image_back_url":  backURL,
 			"created_at":      c.CreatedAt,
@@ -397,4 +400,51 @@ func (h *CoinHandler) ReidentifyCoin(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(analysis)
+}
+func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "Unable to parse form", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("reverse_image")
+	if err != nil {
+		http.Error(w, "Missing reverse_image", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	imageBytes, err := readFileToBytes(file)
+	if err != nil {
+		http.Error(w, "Failed to read image", http.StatusInternalServerError)
+		return
+	}
+
+	results, err := h.Gemini.IdentifyFromSingleImage(r.Context(), imageBytes)
+	if err != nil {
+		log.Printf("Gemini search error: %v", err)
+		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
+		return
+	}
+
+	// Optimization: if the coin has a universal_id, search the DB
+	var dbMatches []models.Coin
+	if results.UniversalID != "" {
+		dbMatches, err = h.DB.GetCoinsByUniversalID(r.Context(), results.UniversalID)
+		if err != nil {
+			log.Printf("DB search error: %v", err)
+			// We don't fail the request if DB search fails, just log it
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"ai_analysis": results,
+		"db_matches":  dbMatches,
+	})
 }
