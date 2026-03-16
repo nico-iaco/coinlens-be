@@ -34,7 +34,7 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 		return nil, fmt.Errorf("images cannot be empty")
 	}
 
-	prompt := "Identify this coin from the front and back images. Return ONLY a valid JSON object with the following fields: name, description, year, country, universal_id. The 'universal_id' should be a universally recognized identifier like Numista ID or Krause (KM) number if available, otherwise return an empty string. Do not include markdown code blocks."
+	prompt := "Identify this coin from the front and back images. Return ONLY a valid JSON object with the following fields: name, description, year, country, universal_id. The 'universal_id' must be a universally recognized identifier like Numista ID if available, otherwise return an empty string. Do not include markdown code blocks."
 
 	parts := []*genai.Part{
 		genai.NewPartFromText(prompt),
@@ -87,7 +87,7 @@ func (g *GeminiClient) IdentifyFromSingleImage(ctx context.Context, image []byte
 		return nil, fmt.Errorf("image cannot be empty")
 	}
 
-	prompt := "Identify this coin from the image. Return ONLY a valid JSON object with the following fields: name, description, year, country, universal_id. The 'universal_id' should be a universally recognized identifier like Numista ID or Krause (KM) number if available, otherwise return an empty string. Do not include markdown code blocks."
+	prompt := "Identify this coin from the image. Return ONLY a valid JSON object with the following fields: name, description, year, country, universal_id. The 'universal_id' must be a universally recognized identifier like Numista ID if available, otherwise return an empty string. Do not include markdown code blocks."
 
 	parts := []*genai.Part{
 		genai.NewPartFromText(prompt),
