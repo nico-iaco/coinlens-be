@@ -7,6 +7,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	"coinlens-be/internal/database"
@@ -108,6 +109,7 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 	// We need a helper in database package or just exec here.
 	// For simplicity, using raw SQL or pgx here.
 
+	analysis.UniversalID = sanitizeUniversalID(analysis.UniversalID)
 	_, err = h.DB.Pool.Exec(context.Background(), `
         INSERT INTO coins (id, name, description, year, country, universal_id)
         VALUES ($1, $2, $3, $4, $5, $6)
@@ -437,6 +439,7 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 
 	// Optimization: if the coin has a universal_id, search the DB
 	var dbMatches []models.Coin
+	results.UniversalID = sanitizeUniversalID(results.UniversalID)
 	if results.UniversalID != "" {
 		dbMatches, err = h.DB.GetCoinsByUniversalID(r.Context(), results.UniversalID)
 		if err != nil {
@@ -450,4 +453,12 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 		"ai_analysis": results,
 		"db_matches":  dbMatches,
 	})
+}
+
+func sanitizeUniversalID(id string) string {
+	id = strings.TrimSpace(id)
+	if strings.HasPrefix(strings.ToLower(id), "numista ") {
+		return strings.TrimSpace(id[len("numista "):])
+	}
+	return id
 }
