@@ -109,9 +109,9 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 	// For simplicity, using raw SQL or pgx here.
 
 	_, err = h.DB.Pool.Exec(context.Background(), `
-        INSERT INTO coins (id, name, description, year, country)
-        VALUES ($1, $2, $3, $4, $5)
-    `, coinID, analysis.Name, analysis.Description, analysis.Year, analysis.Country)
+        INSERT INTO coins (id, name, description, year, country, universal_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `, coinID, analysis.Name, analysis.Description, analysis.Year, analysis.Country, analysis.UniversalID)
 
 	if err != nil {
 		log.Printf("DB error: %v", err)
@@ -140,7 +140,7 @@ func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("GetCoins: Request received")
 
-	rows, err := h.DB.Pool.Query(r.Context(), "SELECT id, name, description, year, country, universal_id, created_at FROM coins ORDER BY created_at DESC")
+	rows, err := h.DB.Pool.Query(r.Context(), "SELECT id, name, description, year, country, COALESCE(universal_id, ''), created_at FROM coins ORDER BY created_at DESC")
 	if err != nil {
 		log.Printf("DB query error: %v", err)
 		http.Error(w, "Failed to fetch coins", http.StatusInternalServerError)
@@ -212,12 +212,13 @@ func (h *CoinHandler) UpdateCoin(w http.ResponseWriter, r *http.Request) {
 		Description string
 		Year        string
 		Country     string
+		UniversalID string
 		CreatedAt   time.Time
 	}
 
 	err := h.DB.Pool.QueryRow(r.Context(),
-		"UPDATE coins SET name = $1 WHERE id = $2 RETURNING id, name, description, year, country, created_at",
-		payload.Name, idStr).Scan(&c.ID, &c.Name, &c.Description, &c.Year, &c.Country, &c.CreatedAt)
+		"UPDATE coins SET name = $1 WHERE id = $2 RETURNING id, name, description, year, country, COALESCE(universal_id, ''), created_at",
+		payload.Name, idStr).Scan(&c.ID, &c.Name, &c.Description, &c.Year, &c.Country, &c.UniversalID, &c.CreatedAt)
 
 	if err != nil {
 		log.Printf("DB update error: %v", err)
@@ -309,6 +310,7 @@ func (h *CoinHandler) CreateCoin(w http.ResponseWriter, r *http.Request) {
 	description := r.FormValue("description")
 	year := r.FormValue("year")
 	country := r.FormValue("country")
+	universalID := r.FormValue("universal_id")
 
 	if name == "" {
 		http.Error(w, "Name is required", http.StatusBadRequest)
@@ -351,6 +353,7 @@ func (h *CoinHandler) CreateCoin(w http.ResponseWriter, r *http.Request) {
 		Description: description,
 		Year:        year,
 		Country:     country,
+		UniversalID: universalID,
 	}
 
 	if err := h.DB.CreateCoin(r.Context(), coin); err != nil {
