@@ -8,10 +8,13 @@ import (
 )
 
 type Config struct {
-	DatabaseURL  string
-	Port         string
-	GeminiAPIKey string
-	GeminiModel  string
+	DatabaseURL   string
+	Port          string
+	GeminiAPIKey  string
+	GeminiModel   string
+	AIProvider    string // "gemini" (default) or "ollama"
+	OllamaBaseURL string // e.g. http://localhost:11434
+	OllamaModel   string // e.g. llava, llama3.2-vision, gemma3
 }
 
 func LoadConfig() *Config {
@@ -20,10 +23,13 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		DatabaseURL:  getEnv("DATABASE_URL", ""),
-		Port:         getEnv("PORT", "8080"),
-		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
-		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-3-flash-preview"),
+		DatabaseURL:   getEnv("DATABASE_URL", ""),
+		Port:          getEnv("PORT", "8080"),
+		GeminiAPIKey:  getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:   getEnv("GEMINI_MODEL", "gemini-3-flash-preview"),
+		AIProvider:    getEnv("AI_PROVIDER", "gemini"),
+		OllamaBaseURL: getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
+		OllamaModel:   getEnv("OLLAMA_MODEL", "gemma3"),
 	}
 }
 

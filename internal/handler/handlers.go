@@ -19,14 +19,14 @@ import (
 
 type CoinHandler struct {
 	DB      *database.DB
-	Gemini  *service.GeminiClient
+	AI      service.CoinAIProvider
 	Storage *service.StorageService
 }
 
-func NewCoinHandler(db *database.DB, gemini *service.GeminiClient, storage *service.StorageService) *CoinHandler {
+func NewCoinHandler(db *database.DB, ai service.CoinAIProvider, storage *service.StorageService) *CoinHandler {
 	return &CoinHandler{
 		DB:      db,
-		Gemini:  gemini,
+		AI:      ai,
 		Storage: storage,
 	}
 }
@@ -79,14 +79,14 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 	backFile.Seek(0, 0)
 	log.Printf("Read back image: %d bytes", len(backBytes))
 
-	// 2. Call Gemini
-	analysis, err := h.Gemini.IdentifyCoin(r.Context(), frontBytes, backBytes)
+	// 2. Call AI provider
+	analysis, err := h.AI.IdentifyCoin(r.Context(), frontBytes, backBytes)
 	if err != nil {
-		log.Printf("Gemini error: %v", err)
+		log.Printf("AI identify error: %v", err)
 		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Gemini analysis successful for coin: %s", analysis.Name)
+	log.Printf("AI analysis successful for coin: %s", analysis.Name)
 
 	// Generate ID
 	coinID := uuid.New()
@@ -388,10 +388,10 @@ func (h *CoinHandler) ReidentifyCoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Call Gemini
-	analysis, err := h.Gemini.IdentifyCoin(r.Context(), frontBytes, backBytes)
+	// 2. Call AI provider
+	analysis, err := h.AI.IdentifyCoin(r.Context(), frontBytes, backBytes)
 	if err != nil {
-		log.Printf("Gemini error: %v", err)
+		log.Printf("AI identify error: %v", err)
 		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
 		return
 	}
@@ -430,9 +430,9 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	results, err := h.Gemini.IdentifyFromSingleImage(r.Context(), imageBytes)
+	results, err := h.AI.IdentifyFromSingleImage(r.Context(), imageBytes)
 	if err != nil {
-		log.Printf("Gemini search error: %v", err)
+		log.Printf("AI search error: %v", err)
 		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
 		return
 	}

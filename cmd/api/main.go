@@ -23,14 +23,24 @@ func main() {
 	}
 	defer db.Close()
 
-	geminiClient, err := service.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
-	if err != nil {
-		log.Fatalf("Could not create Gemini client: %v", err)
+	// Select AI provider based on configuration
+	var aiProvider service.CoinAIProvider
+	switch cfg.AIProvider {
+	case "ollama":
+		log.Printf("Using Ollama AI provider (model: %s, url: %s)", cfg.OllamaModel, cfg.OllamaBaseURL)
+		aiProvider = service.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel)
+	default:
+		log.Printf("Using Gemini AI provider (model: %s)", cfg.GeminiModel)
+		geminiClient, err := service.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
+		if err != nil {
+			log.Fatalf("Could not create Gemini client: %v", err)
+		}
+		aiProvider = geminiClient
 	}
 
 	storageService := service.NewStorageService("uploads")
 
-	coinHandler := handler.NewCoinHandler(db, geminiClient, storageService)
+	coinHandler := handler.NewCoinHandler(db, aiProvider, storageService)
 
 	// Create a multiplexer
 	mux := http.NewServeMux()
