@@ -74,6 +74,29 @@ func (db *DB) UpdateCoinMetadata(ctx context.Context, id string, analysis *model
 	return nil
 }
 
+func (db *DB) GetCoinsByCountryAndYear(ctx context.Context, country, year string) ([]models.Coin, error) {
+	rows, err := db.Pool.Query(ctx, `
+		SELECT id, name, description, year, country, COALESCE(universal_id, ''), created_at
+		FROM coins
+		WHERE country ILIKE $1 AND year = $2
+		ORDER BY created_at DESC
+	`, "%"+country+"%", year)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search coins by country and year: %w", err)
+	}
+	defer rows.Close()
+
+	var coins []models.Coin
+	for rows.Next() {
+		var c models.Coin
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Year, &c.Country, &c.UniversalID, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan coin: %w", err)
+		}
+		coins = append(coins, c)
+	}
+	return coins, nil
+}
+
 func (db *DB) GetCoinsByUniversalID(ctx context.Context, universalID string) ([]models.Coin, error) {
 	rows, err := db.Pool.Query(ctx, "SELECT id, name, description, year, country, universal_id, created_at FROM coins WHERE universal_id = $1 ORDER BY created_at DESC", universalID)
 	if err != nil {

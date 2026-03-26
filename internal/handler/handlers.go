@@ -437,14 +437,32 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Optimization: if the coin has a universal_id, search the DB
+	// Search 1: by universal_id (exact match)
+	seen := make(map[string]struct{})
 	var dbMatches []models.Coin
+
 	results.UniversalID = sanitizeUniversalID(results.UniversalID)
 	if results.UniversalID != "" {
-		dbMatches, err = h.DB.GetCoinsByUniversalID(r.Context(), results.UniversalID)
+		byID, err := h.DB.GetCoinsByUniversalID(r.Context(), results.UniversalID)
 		if err != nil {
-			log.Printf("DB search error: %v", err)
-			// We don't fail the request if DB search fails, just log it
+			log.Printf("DB search by universal_id error: %v", err)
+		}
+		for _, c := range byID {
+			seen[c.ID.String()] = struct{}{}
+			dbMatches = append(dbMatches, c)
+		}
+	}
+
+	// Search 2: by country and year (fuzzy/similar search)
+	if results.Country != "" && results.Year != "" {
+		byCountryYear, err := h.DB.GetCoinsByCountryAndYear(r.Context(), results.Country, results.Year)
+		if err != nil {
+			log.Printf("DB search by country+year error: %v", err)
+		}
+		for _, c := range byCountryYear {
+			if _, already := seen[c.ID.String()]; !already {
+				dbMatches = append(dbMatches, c)
+			}
 		}
 	}
 
