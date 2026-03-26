@@ -109,11 +109,11 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 	// We need a helper in database package or just exec here.
 	// For simplicity, using raw SQL or pgx here.
 
-	analysis.UniversalID = sanitizeUniversalID(analysis.UniversalID)
+	analysis.UniversalID = models.FlexibleString(sanitizeUniversalID(analysis.UniversalID.String()))
 	_, err = h.DB.Pool.Exec(context.Background(), `
         INSERT INTO coins (id, name, description, year, country, universal_id)
         VALUES ($1, $2, $3, $4, $5, $6)
-    `, coinID, analysis.Name, analysis.Description, analysis.Year, analysis.Country, analysis.UniversalID)
+    `, coinID, analysis.Name, analysis.Description, analysis.Year.String(), analysis.Country, analysis.UniversalID.String())
 
 	if err != nil {
 		log.Printf("DB error: %v", err)
@@ -441,9 +441,9 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 	seen := make(map[string]struct{})
 	var dbMatches []models.Coin
 
-	results.UniversalID = sanitizeUniversalID(results.UniversalID)
+	results.UniversalID = models.FlexibleString(sanitizeUniversalID(results.UniversalID.String()))
 	if results.UniversalID != "" {
-		byID, err := h.DB.GetCoinsByUniversalID(r.Context(), results.UniversalID)
+		byID, err := h.DB.GetCoinsByUniversalID(r.Context(), results.UniversalID.String())
 		if err != nil {
 			log.Printf("DB search by universal_id error: %v", err)
 		}
@@ -455,7 +455,7 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 
 	// Search 2: by country and year (fuzzy/similar search)
 	if results.Country != "" && results.Year != "" {
-		byCountryYear, err := h.DB.GetCoinsByCountryAndYear(r.Context(), results.Country, results.Year)
+		byCountryYear, err := h.DB.GetCoinsByCountryAndYear(r.Context(), results.Country, results.Year.String())
 		if err != nil {
 			log.Printf("DB search by country+year error: %v", err)
 		}
