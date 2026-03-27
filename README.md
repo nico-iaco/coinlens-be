@@ -14,7 +14,7 @@ CoinLens is a powerful backend application designed to catalog and identify coin
 
 - **Language**: Go (Golang) 1.25+
 - **Database**: PostgreSQL 15
-- **AI Engine**: Google Gemini 3 Flash (`google.golang.org/genai`)
+- **AI Engine**: Google Gemini 3 Flash / Ollama local models (`genai` / `llava` / `gemma3`)
 - **Router/HTTP**: Standard library `net/http`
 - **Database Driver**: `pgx` (PostgreSQL Driver and Toolkit)
 - **Configuration**: `godotenv` for environment variable management
@@ -64,6 +64,9 @@ coinlens-be/
     PORT=8080
     GEMINI_API_KEY=your_actual_api_key_here
     GEMINI_MODEL=gemini-3-flash-preview # Optional, defaults to gemini-3-flash-preview
+    AI_PROVIDER=gemini # gemini or ollama
+    OLLAMA_BASE_URL=http://localhost:11434 # Required for Ollama
+    OLLAMA_MODEL=gemma3 # Required for Ollama (e.g., gemma3, llava)
     ```
 
 ### 📦 Running with Docker (Recommended)
@@ -113,8 +116,8 @@ Analyzes uploaded images and returns identification details.
   "name": "Lincoln Cent",
   "description": "The Lincoln cent/penny is a one-cent coin that has been struck by the United States Mint since 1909.",
   "year": "1944",
-  "country": "United States"
-  "country": "United States"
+  "country": "United States",
+  "universal_id": "1234"
 }
 ```
 
@@ -133,6 +136,7 @@ Retrieves the catalog of identified coins with image URLs.
     "description": "...",
     "year": "1944",
     "country": "United States",
+    "universal_id": "1234",
     "image_front_url": "/uploads/front.jpg",
     "image_back_url": "/uploads/back.jpg",
     "created_at": "2025-12-25T19:30:00Z"
@@ -162,6 +166,7 @@ Updates the name of a specific coin.
   "description": "...",
   "year": "1944",
   "country": "United States",
+  "universal_id": "1234",
   "image_front_url": "/uploads/550e8400-e29b-41d4-a716-446655440000-front.jpg",
   "image_back_url": "/uploads/550e8400-e29b-41d4-a716-446655440000-back.jpg",
   "created_at": "2025-12-25T19:30:00Z"
@@ -181,14 +186,23 @@ Manually adds a coin without AI identification.
 
 - **Endpoint**: `POST /api/coins`
 - **Content-Type**: `multipart/form-data`
-- **Parameters**: `name`, `description`, `year`, `country`, `front_image`, `back_image`
+- **Parameters**: `name`, `description`, `year`, `country`, `universal_id`, `front_image`, `back_image`
 
 ### Re-identify Coin
 
 Triggers AI identification for an existing coin using stored images.
 
 - **Endpoint**: `POST /api/coins/{id}/identify`
-- **Response**: Updated coin analysis object
+- **Response**: Updated coin analysis object including `universal_id`
+
+### Search Similar Coins
+
+Searches for matching coins in the database based on AI analysis of a single image.
+
+- **Endpoint**: `POST /api/coins/search`
+- **Content-Type**: `multipart/form-data`
+- **Parameters**: `reverse_image` (the coin image to analyze)
+- **Response**: AI analysis of the image plus a list of `db_matches` (coins already in your database).
 
 ## 📝 License
 
