@@ -38,3 +38,10 @@ func (rw *responseWriterWrapper) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
 }
+
+// Flush implements the http.Flusher interface to support SSE.
+func (rw *responseWriterWrapper) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
