@@ -48,14 +48,17 @@ type ollamaChatRequest struct {
 	Stream   bool            `json:"stream"`
 }
 
-// ollamaChatResponse is the response from POST /api/chat (non-streaming).
+// ollamaChatResponse is the response from POST /api/chat.
 type ollamaChatResponse struct {
 	Message ollamaMessage `json:"message"`
 }
 
 // IdentifyCoin identifies a coin from front and back images.
-func (o *OllamaClient) IdentifyCoin(ctx context.Context, frontImage, backImage []byte) (*models.CoinAnalysis, error) {
+func (o *OllamaClient) IdentifyCoin(ctx context.Context, frontImage, backImage []byte, stream chan<- string) (*models.CoinAnalysis, error) {
 	if len(frontImage) == 0 || len(backImage) == 0 {
+		if stream != nil {
+			close(stream)
+		}
 		return nil, fmt.Errorf("images cannot be empty")
 	}
 
@@ -67,12 +70,15 @@ func (o *OllamaClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 	}
 
 	log.Printf("Calling Ollama API (model: %s) for IdentifyCoin...", o.modelName)
-	return o.chat(ctx, prompt, images)
+	return o.chat(ctx, prompt, images, stream)
 }
 
 // IdentifyFromSingleImage identifies a coin from a single image.
-func (o *OllamaClient) IdentifyFromSingleImage(ctx context.Context, image []byte) (*models.CoinAnalysis, error) {
+func (o *OllamaClient) IdentifyFromSingleImage(ctx context.Context, image []byte, stream chan<- string) (*models.CoinAnalysis, error) {
 	if len(image) == 0 {
+		if stream != nil {
+			close(stream)
+		}
 		return nil, fmt.Errorf("image cannot be empty")
 	}
 
@@ -83,11 +89,15 @@ func (o *OllamaClient) IdentifyFromSingleImage(ctx context.Context, image []byte
 	}
 
 	log.Printf("Calling Ollama API (model: %s) for IdentifyFromSingleImage...", o.modelName)
-	return o.chat(ctx, prompt, images)
+	return o.chat(ctx, prompt, images, stream)
 }
 
 // chat sends a request to the Ollama /api/chat endpoint and parses the CoinAnalysis response.
-func (o *OllamaClient) chat(ctx context.Context, prompt string, images []string) (*models.CoinAnalysis, error) {
+func (o *OllamaClient) chat(ctx context.Context, prompt string, images []string, stream chan<- string) (*models.CoinAnalysis, error) {
+	if stream != nil {
+		defer close(stream)
+	}
+
 	reqBody := ollamaChatRequest{
 		Model: o.modelName,
 		Messages: []ollamaMessage{
@@ -97,7 +107,7 @@ func (o *OllamaClient) chat(ctx context.Context, prompt string, images []string)
 				Images:  images,
 			},
 		},
-		Stream: false,
+		Stream: true,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -122,15 +132,28 @@ func (o *OllamaClient) chat(ctx context.Context, prompt string, images []string)
 		return nil, fmt.Errorf("ollama returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var ollamaResp ollamaChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
-		return nil, fmt.Errorf("failed to decode ollama response: %w", err)
+	var fullText string
+	dec := json.NewDecoder(resp.Body)
+	for {
+		var ollamaResp ollamaChatResponse
+		if err := dec.Decode(&ollamaResp); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("failed to decode stream: %w", err)
+		}
+
+		chunk := ollamaResp.Message.Content
+		fullText += chunk
+		if stream != nil {
+			stream <- chunk
+		}
 	}
 
-	text := ollamaResp.Message.Content
-	log.Printf("Ollama raw response: %s", text)
+	log.Printf("Ollama raw response: %s", fullText)
 
 	// Cleanup markdown fences if the model wrapped the JSON anyway
+	text := fullText
 	text = strings.TrimPrefix(text, "```json")
 	text = strings.TrimPrefix(text, "```")
 	text = strings.TrimSuffix(text, "```")

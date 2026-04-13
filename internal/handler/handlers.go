@@ -79,33 +79,70 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 	backFile.Seek(0, 0)
 	log.Printf("Read back image: %d bytes", len(backBytes))
 
-	// 2. Call AI provider
-	analysis, err := h.AI.IdentifyCoin(r.Context(), frontBytes, backBytes)
-	if err != nil {
-		log.Printf("AI identify error: %v", err)
-		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
+	// Set headers for SSE so proxy won't timeout and client receives it immediately
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
+
+	// 2. Call AI provider in background
+	stream := make(chan string)
+
+	type aiResult struct {
+		analysis *models.CoinAnalysis
+		err      error
+	}
+	resChan := make(chan aiResult, 1)
+
+	go func() {
+		analysis, err := h.AI.IdentifyCoin(r.Context(), frontBytes, backBytes, stream)
+		resChan <- aiResult{analysis, err}
+	}()
+
+	// 3. Stream data loop
+	for text := range stream {
+		// Escape newlines inside SSE data or format properly
+		// Replace newlines with spaces or just stream raw if JSON
+		safeText := strings.ReplaceAll(text, "\n", "\\n")
+		w.Write([]byte("data: " + safeText + "\n\n"))
+		flusher.Flush()
+	}
+
+	res := <-resChan
+	if res.err != nil {
+		log.Printf("AI identify error: %v", res.err)
+		w.Write([]byte("event: error\ndata: Failed to identify coin\n\n"))
+		flusher.Flush()
+		return
+	}
+	analysis := res.analysis
 	log.Printf("AI analysis successful for coin: %s", analysis.Name)
 
 	// Generate ID
 	coinID := uuid.New()
 
-	// 3. Save images to storage
+	// 4. Save images to storage
 	// Save files with deterministic names
 	if err := h.Storage.SaveFile(frontFile, coinID.String()+"-front.jpg"); err != nil {
 		log.Printf("Storage error front: %v", err)
-		http.Error(w, "Failed to save images", http.StatusInternalServerError)
+		w.Write([]byte("event: error\ndata: Failed to save images\n\n"))
+		flusher.Flush()
 		return
 	}
 
 	if err := h.Storage.SaveFile(backFile, coinID.String()+"-back.jpg"); err != nil {
 		log.Printf("Storage error back: %v", err)
-		http.Error(w, "Failed to save images", http.StatusInternalServerError)
+		w.Write([]byte("event: error\ndata: Failed to save images\n\n"))
+		flusher.Flush()
 		return
 	}
 
-	// 4. Save to DB
+	// 5. Save to DB
 	// We need a helper in database package or just exec here.
 	// For simplicity, using raw SQL or pgx here.
 
@@ -117,22 +154,26 @@ func (h *CoinHandler) IdentifyCoin(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("DB error: %v", err)
-		http.Error(w, "Failed to save to database", http.StatusInternalServerError)
+		w.Write([]byte("event: error\ndata: Failed to save to database\n\n"))
+		flusher.Flush()
 		return
 	}
 
 	log.Printf("Coin identified and saved successfully: %s", coinID.String())
 
-	// 5. Return response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	// 6. Return final response structured as SSE
+	finalData := map[string]interface{}{
 		"id":           coinID.String(),
 		"name":         analysis.Name,
 		"description":  analysis.Description,
 		"year":         analysis.Year,
 		"country":      analysis.Country,
 		"universal_id": analysis.UniversalID,
-	})
+	}
+
+	finalJSON, _ := json.Marshal(finalData)
+	w.Write([]byte("event: complete\ndata: " + string(finalJSON) + "\n\n"))
+	flusher.Flush()
 }
 
 func (h *CoinHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
@@ -389,7 +430,7 @@ func (h *CoinHandler) ReidentifyCoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Call AI provider
-	analysis, err := h.AI.IdentifyCoin(r.Context(), frontBytes, backBytes)
+	analysis, err := h.AI.IdentifyCoin(r.Context(), frontBytes, backBytes, nil)
 	if err != nil {
 		log.Printf("AI identify error: %v", err)
 		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)
@@ -430,7 +471,7 @@ func (h *CoinHandler) SearchSimilarCoins(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	results, err := h.AI.IdentifyFromSingleImage(r.Context(), imageBytes)
+	results, err := h.AI.IdentifyFromSingleImage(r.Context(), imageBytes, nil)
 	if err != nil {
 		log.Printf("AI search error: %v", err)
 		http.Error(w, "Failed to identify coin", http.StatusInternalServerError)

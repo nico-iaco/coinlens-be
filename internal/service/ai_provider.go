@@ -10,10 +10,10 @@ import (
 // Any component that needs AI-based coin identification should depend on this interface.
 type CoinAIProvider interface {
 	// IdentifyCoin identifies a coin from its front and back images.
-	IdentifyCoin(ctx context.Context, frontImage, backImage []byte) (*models.CoinAnalysis, error)
+	IdentifyCoin(ctx context.Context, frontImage, backImage []byte, stream chan<- string) (*models.CoinAnalysis, error)
 
 	// IdentifyFromSingleImage identifies a coin from a single image (e.g. reverse side for search).
-	IdentifyFromSingleImage(ctx context.Context, image []byte) (*models.CoinAnalysis, error)
+	IdentifyFromSingleImage(ctx context.Context, image []byte, stream chan<- string) (*models.CoinAnalysis, error)
 }
 
 // Compile-time interface checks

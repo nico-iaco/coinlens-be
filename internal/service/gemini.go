@@ -29,7 +29,10 @@ func NewGeminiClient(apiKey, modelName string) (*GeminiClient, error) {
 	return &GeminiClient{client: client, modelName: modelName}, nil
 }
 
-func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage []byte) (*models.CoinAnalysis, error) {
+func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage []byte, stream chan<- string) (*models.CoinAnalysis, error) {
+	if stream != nil {
+		defer close(stream)
+	}
 	if len(frontImage) == 0 || len(backImage) == 0 {
 		return nil, fmt.Errorf("images cannot be empty")
 	}
@@ -48,22 +51,21 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 
 	// 2. Call Gemini
 	log.Printf("Calling Gemini API with model: %s...", g.modelName)
-	resp, err := g.client.Models.GenerateContent(ctx, g.modelName, contents, nil)
 
-	if err != nil {
-		return nil, fmt.Errorf("gemini generation failed: %w", err)
-	}
-
-	if resp == nil || len(resp.Candidates) == 0 {
-		return nil, fmt.Errorf("no response from gemini")
-	}
-	log.Printf("Gemini response received. Candidates: %d", len(resp.Candidates))
-
-	// Extract text from the first candidate
 	var fullText string
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if part.Text != "" {
-			fullText += part.Text
+	for resp, err := range g.client.Models.GenerateContentStream(ctx, g.modelName, contents, nil) {
+		if err != nil {
+			return nil, fmt.Errorf("gemini generation failed: %w", err)
+		}
+		if resp != nil && len(resp.Candidates) > 0 {
+			for _, part := range resp.Candidates[0].Content.Parts {
+				if part.Text != "" {
+					fullText += part.Text
+					if stream != nil {
+						stream <- part.Text
+					}
+				}
+			}
 		}
 	}
 
@@ -82,7 +84,10 @@ func (g *GeminiClient) IdentifyCoin(ctx context.Context, frontImage, backImage [
 	return &result, nil
 }
 
-func (g *GeminiClient) IdentifyFromSingleImage(ctx context.Context, image []byte) (*models.CoinAnalysis, error) {
+func (g *GeminiClient) IdentifyFromSingleImage(ctx context.Context, image []byte, stream chan<- string) (*models.CoinAnalysis, error) {
+	if stream != nil {
+		defer close(stream)
+	}
 	if len(image) == 0 {
 		return nil, fmt.Errorf("image cannot be empty")
 	}
@@ -99,19 +104,20 @@ func (g *GeminiClient) IdentifyFromSingleImage(ctx context.Context, image []byte
 	}
 
 	log.Printf("Calling Gemini API for single image identification...")
-	resp, err := g.client.Models.GenerateContent(ctx, g.modelName, contents, nil)
-	if err != nil {
-		return nil, fmt.Errorf("gemini generation failed: %w", err)
-	}
-
-	if resp == nil || len(resp.Candidates) == 0 {
-		return nil, fmt.Errorf("no response from gemini")
-	}
-
 	var fullText string
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if part.Text != "" {
-			fullText += part.Text
+	for resp, err := range g.client.Models.GenerateContentStream(ctx, g.modelName, contents, nil) {
+		if err != nil {
+			return nil, fmt.Errorf("gemini generation failed: %w", err)
+		}
+		if resp != nil && len(resp.Candidates) > 0 {
+			for _, part := range resp.Candidates[0].Content.Parts {
+				if part.Text != "" {
+					fullText += part.Text
+					if stream != nil {
+						stream <- part.Text
+					}
+				}
+			}
 		}
 	}
 
